@@ -884,7 +884,7 @@ export function AgentProfileView({ profile, onBack, onOpenSkill }: Props) {
               {verifiedRepos.length > 0 && (
                 <div>
                   <p className="mb-2 border-b pb-1.5 text-[11px] uppercase tracking-wide" style={{ color: "var(--an-fg-mute)", borderColor: "var(--an-line)" }}>Verified work</p>
-                  <div className="flex snap-x gap-3 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
+                  <div className="an-workrow flex snap-x gap-3 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
                     {sortedRepos.map((r) => (
                       <WorkCard key={`${r.owner}/${r.name}`} repo={r} skillById={skillById} onOpenSkill={onOpenSkill} onAllSkills={setRepoSkills} />
                     ))}
