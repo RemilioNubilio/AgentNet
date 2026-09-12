@@ -317,10 +317,10 @@ export function createChatSession(
     // plan rate-limit utilization (claude.ai accounts): forward so the active surface can
     // draw a "used N% of your limit" gauge. Optional on the handle — codex/API-key engines
     // never emit it, so this simply never fires for them.
+    // The message is the contract's RateLimitInfo as-is: utilization 0-100 (absent when the
+    // plan rejects the turn), resetsAt epoch ms.
     h.onRateLimit?.((info) => {
-      if (isVisibleHandle(forCli, h)) {
-        transport.send({ type: "rateLimit", utilization: info.utilization, window: info.window, resetsAt: info.resetsAt, status: info.status });
-      }
+      if (isVisibleHandle(forCli, h)) transport.send({ type: "rateLimit", ...info });
     });
     // compaction: the engine condensed history to reclaim context. Cue the active surface
     // (a notice + the next usage update reflects the reclaimed space).

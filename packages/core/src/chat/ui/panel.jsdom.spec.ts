@@ -133,7 +133,7 @@ describe("panel.jsdom: composer", () => {
 });
 
 describe("panel.jsdom: rate-limit gauge", () => {
-  it("shows the gauge at any utilization, normalizes 0-1 fractions, and turns amber past 80%", () => {
+  it("shows the gauge at any utilization, fills to 100 on an over-cap window, and turns amber past 80%", () => {
     const p = boot();
     const meter = p.$("#limitMeter") as HTMLElement;
     const fill = () => p.$("#limitMeter .lm-fill") as HTMLElement;
@@ -152,14 +152,55 @@ describe("panel.jsdom: rate-limit gauge", () => {
     expect(meter.title).toContain("72%");
     expect(meter.title).toContain("5-hour");
 
-    // a 0-1 fraction is read as a percentage: 0.73 -> 73%, not 1%
-    p.host({ type: "rateLimit", utilization: 0.73, window: "five_hour" });
-    expect(pct().textContent).toBe("73%");
+    // the host sends the contract's 0-100 percentage; core clamps an over-cap window to 100
+    p.host({ type: "rateLimit", utilization: 100, window: "five_hour", status: "allowed_warning" });
+    expect(pct().textContent).toBe("100%");
+    expect(fill().style.width).toBe("100%");
 
     // 91%: warning tint
     p.host({ type: "rateLimit", utilization: 91, window: "seven_day" });
     expect(meter.classList.contains("warn")).toBe(true);
     expect(pct().textContent).toBe("91%");
+    expect(p.errors).toEqual([]);
+  });
+
+  it("keeps the last percentage and repaints the tint on a frame without a reading", () => {
+    const p = boot();
+    const meter = p.$("#limitMeter") as HTMLElement;
+    const pct = () => p.$("#limitMeter .lm-pct") as HTMLElement;
+    p.host({ type: "rateLimit", utilization: 72, window: "five_hour", status: "allowed" });
+    expect(meter.classList.contains("warn")).toBe(false);
+
+    // a status change without a reading: keep the last percentage and repaint the tint
+    p.host({ type: "rateLimit", window: "five_hour", resetsAt: 1893456000000, status: "allowed_warning" });
+    expect(meter.style.display).toBe("inline-flex");
+    expect(pct().textContent).toBe("72%");
+    expect(meter.classList.contains("warn")).toBe(true);
+    expect(meter.title).toContain("resets");
+    expect(p.errors).toEqual([]);
+  });
+
+  it("paints a rejection as a full amber window, whichever reading came before", () => {
+    const p = boot();
+    const meter = p.$("#limitMeter") as HTMLElement;
+    const pct = () => p.$("#limitMeter .lm-pct") as HTMLElement;
+    p.host({ type: "rateLimit", utilization: 72, window: "five_hour", status: "allowed" });
+    expect(pct().textContent).toBe("72%");
+    // core reports the exhausted window as 100: the weekly cap blocks, not the 5-hour reading
+    p.host({ type: "rateLimit", utilization: 100, window: "seven_day", resetsAt: 1893456000000, status: "rejected" });
+    expect(meter.style.display).toBe("inline-flex");
+    expect(pct().textContent).toBe("100%");
+    expect(meter.classList.contains("warn")).toBe(true);
+    expect(p.errors).toEqual([]);
+  });
+
+  it("shows a rejection that arrives before any reading", () => {
+    const p = boot();
+    const meter = p.$("#limitMeter") as HTMLElement;
+    p.host({ type: "rateLimit", utilization: 100, window: "five_hour", status: "rejected" });
+    expect(meter.style.display).toBe("inline-flex");
+    expect((p.$("#limitMeter .lm-pct") as HTMLElement).textContent).toBe("100%");
+    expect(meter.classList.contains("warn")).toBe(true);
     expect(p.errors).toEqual([]);
   });
 

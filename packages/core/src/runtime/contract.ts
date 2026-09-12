@@ -124,8 +124,10 @@ export interface SkillActivation {
 // Plan rate-limit utilization for claude.ai subscription accounts, reported by the engine
 // when the SDK emits a rate_limit_event. Lets a surface draw a "used N% of your limit" gauge
 // like the Claude CLI. Only the claude engine produces this (API-key/codex users never do).
+// Units are normalized once in the claude converter (the engine reports a 0-1 fraction and
+// epoch seconds), so surfaces read these fields as they are, without guessing the scale.
 export interface RateLimitInfo {
-  utilization: number; // percent of the active window used, 0-100
+  utilization?: number; // percent of the active window used, 0-100; a rejected window reports 100
   window?: string; // which limit reset: 'five_hour' | 'seven_day' | 'seven_day_opus' | ...
   resetsAt?: number; // epoch ms when the active window resets, when known
   status?: string; // 'allowed' | 'allowed_warning' | 'rejected'

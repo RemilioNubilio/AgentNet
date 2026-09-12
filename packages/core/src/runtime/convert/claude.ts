@@ -127,9 +127,9 @@ export function mapClaudeMessage(m: unknown): ParseResult {
     };
     rate_limit_info?: {
       status?: string;
-      utilization?: number;
+      utilization?: number; // fraction of the window, 0-1 (past 1 when usage runs over a cap)
       rateLimitType?: string;
-      resetsAt?: number;
+      resetsAt?: number; // unix epoch seconds
     };
   };
 
@@ -150,19 +150,21 @@ export function mapClaudeMessage(m: unknown): ParseResult {
     return out;
   }
 
-  // a rate_limit_event carries the claude.ai plan's window utilization (0-100). Surface it
-  // so a UI can draw a "used N% of your limit" gauge; it arrives out-of-band, not tied to a
-  // turn, and only for subscription accounts (never API-key/Bedrock/Vertex).
+  // a rate_limit_event carries the claude.ai plan's window state so a UI can draw a "used N%
+  // of your limit" gauge; it arrives out-of-band, not tied to a turn, and only for
+  // subscription accounts (never API-key/Bedrock/Vertex). The engine relays the
+  // anthropic-ratelimit-unified-* headers as they come: utilization is a fraction of the
+  // window and resetsAt unix epoch seconds. The contract is 0-100 and epoch ms, so scale here,
+  // once, and clamp so an over-cap window fills the gauge. A rejected window carries no
+  // utilization at all, and it is by definition at its cap (the engine names the exhausted
+  // window, which may differ from the last reading), so report it as 100 rather than let a
+  // surface paint a stale percentage under the blocked window's label.
   if (msg.type === "rate_limit_event" && msg.rate_limit_info) {
     const rl = msg.rate_limit_info;
-    if (typeof rl.utilization === "number") {
-      out.rateLimit = {
-        utilization: rl.utilization,
-        window: rl.rateLimitType,
-        resetsAt: rl.resetsAt,
-        status: rl.status,
-      };
-    }
+    out.rateLimit = { window: rl.rateLimitType, status: rl.status };
+    if (typeof rl.utilization === "number") out.rateLimit.utilization = Math.min(100, Math.max(0, rl.utilization * 100));
+    else if (rl.status === "rejected") out.rateLimit.utilization = 100;
+    if (typeof rl.resetsAt === "number") out.rateLimit.resetsAt = rl.resetsAt * 1000;
     return out;
   }
 

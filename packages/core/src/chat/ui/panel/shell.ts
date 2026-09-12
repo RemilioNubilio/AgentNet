@@ -122,22 +122,21 @@ let ctxLabel: string | null = null;
 let usage: { pct: number; warn: boolean; title: string } | null = null;
 let usageExpanded = false; // user clicked the gauge to also reveal the ctx tail
 
-// Feed the plan rate-limit gauge. utilization arrives as either a 0-100 percentage or a 0-1
-// fraction depending on the engine build, so a value at or below 1 is read as a fraction —
-// without this, a real 73% sent as 0.73 renders as "1%" (or, under the old >=50 gate, hidden).
+// Feed the plan rate-limit gauge. utilization is 0-100 and resetsAt epoch ms as the host sends
+// them (core normalizes the engine's units and reports a rejected window as 100). A frame
+// without a reading keeps the last percentage and repaints the tint from the status, so the
+// gauge never freezes green or vanishes on a status change. Before any percentage has arrived
+// there is nothing to draw, and the slot stays on the ctx fallback.
 export function renderLimitMeter(info: { utilization?: number; window?: string; resetsAt?: number; status?: string }) {
-  const raw = typeof info.utilization === 'number' ? info.utilization : null;
-  if (raw === null) { usage = null; paintMeters(); return; }
-  const u = Math.max(0, Math.min(100, raw <= 1 ? raw * 100 : raw));
-  const warn = u >= 80 || info.status === 'rejected' || info.status === 'allowed_warning';
+  const pct = typeof info.utilization === 'number' ? info.utilization : usage?.pct;
+  if (pct === undefined) return;
+  const warn = pct >= 80 || info.status === 'rejected' || info.status === 'allowed_warning';
   const windowLabel = LIMIT_WINDOW_LABEL[info.window || ''] || 'usage';
-  // resetsAt may arrive as seconds or ms depending on the engine build; normalize to ms.
   let resets = '';
   if (typeof info.resetsAt === 'number' && info.resetsAt > 0) {
-    const ms = info.resetsAt < 1e12 ? info.resetsAt * 1000 : info.resetsAt;
-    resets = ' · resets ' + new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    resets = ' · resets ' + new Date(info.resetsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
-  usage = { pct: u, warn, title: 'Used ' + Math.round(u) + '% of your ' + windowLabel + ' limit' + resets };
+  usage = { pct, warn, title: 'Used ' + Math.round(pct) + '% of your ' + windowLabel + ' limit' + resets };
   paintMeters();
 }
 
