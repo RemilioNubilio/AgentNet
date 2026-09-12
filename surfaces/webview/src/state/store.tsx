@@ -138,7 +138,7 @@ export interface State {
   // Unlike context, this is NOT reset on a new chat — it tracks the plan, not the session.
   limitPct?: number; // 0-100 utilization of the active window
   limitWindow?: string; // 'five_hour' | 'seven_day' | ...
-  limitResetsAt?: number; // epoch (s or ms) when the active window resets
+  limitResetsAt?: number; // epoch ms when the active window resets
   limitStatus?: string; // 'allowed' | 'allowed_warning' | 'rejected'
   isCompacting: boolean;
   currentModel?: string;
@@ -392,9 +392,11 @@ function reducer(state: State, ev: Action): State {
         contextWindow: ev.contextWindow ?? state.contextWindow,
       };
     case "rateLimit":
+      // core reports a rejected window as 100; a frame without a reading keeps the last
+      // percentage so the gauge never unmounts on a status change.
       return {
         ...state,
-        limitPct: ev.utilization,
+        limitPct: ev.utilization ?? state.limitPct,
         limitWindow: ev.window,
         limitResetsAt: ev.resetsAt,
         limitStatus: ev.status,

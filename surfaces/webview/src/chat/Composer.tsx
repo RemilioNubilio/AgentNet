@@ -109,9 +109,8 @@ function LimitDot({ pct, window: win, resetsAt, status }: { pct: number; window?
   const warn = danger || p >= 80 || status === "allowed_warning";
   const color = danger ? "var(--an-red, #e55)" : warn ? "var(--an-amber, #e90)" : "var(--an-term-green, #6f6)";
   const label = LIMIT_WINDOW_LABEL[win || ""] || "usage";
-  // resetsAt may arrive as seconds or ms depending on the engine build; normalize to ms.
   const resetTxt = typeof resetsAt === "number" && resetsAt > 0
-    ? new Date(resetsAt < 1e12 ? resetsAt * 1000 : resetsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    ? new Date(resetsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : null;
   return (
     <span ref={rootRef} className="relative flex items-center" title={`Used ${p}% of your ${label} limit${resetTxt ? ` · resets ${resetTxt}` : ""}`}>

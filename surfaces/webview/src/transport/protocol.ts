@@ -193,7 +193,8 @@ export type ClientMessage =
 export type ServerMessage =
   | { type: "clear" }
   | { type: "usage"; contextTokens: number; contextWindow?: number }
-  | { type: "rateLimit"; utilization: number; window?: string; resetsAt?: number; status?: string }
+  // the contract's RateLimitInfo: utilization 0-100 (absent when the plan rejects the turn), resetsAt epoch ms
+  | { type: "rateLimit"; utilization?: number; window?: string; resetsAt?: number; status?: string }
   | { type: "compacted" }
   | { type: "notice"; text: string }
   | {
